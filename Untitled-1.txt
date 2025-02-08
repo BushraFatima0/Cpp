@@ -1,0 +1,457 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+#define MAX_USERNAME 50
+#define MAX_PASSWORD 50
+#define MAX_PARTICIPANTS 100
+
+// Structure to store user details
+struct User {
+    char username[MAX_USERNAME];
+    char password[MAX_PASSWORD];
+};
+
+// Structure to store participant details
+struct Participant {
+    char name[100];
+    int rollNumber;
+};
+
+// Structure to store event details
+struct Event {
+    char name[100];
+    char date[20];  // Format: DD-MM-YYYY
+    char time[10];  // Format: HH:MM
+    char description[200];
+    time_t eventTimestamp;  // Timestamp for the event date and time
+    int participantCount;
+    struct Participant participants[MAX_PARTICIPANTS];
+    int maxParticipants; // Added to store maximum participants
+};
+
+// Function prototypes
+void loginMenu();
+void signUp();
+int login();
+void createUserFile(const char *username);
+int checkUserExists(const char *username);
+void mainMenu(const char *username);
+void registerEvents(struct Event *events, int *currentEventCount, int maxEvents);
+void displayEvents(struct Event *events, int numEvents);
+void checkNotifications(struct Event *events, int numEvents);
+void updateEvent(struct Event *events, int numEvents);
+void addParticipants(struct Event *event);
+void listParticipants(struct Event *event);
+time_t convertToTimestamp(const char *date, const char *time);
+
+int main() {
+    loginMenu();
+    return 0;
+}
+
+void loginMenu() {
+    int choice;
+    do {
+        printf("\n--- EventPro Login Menu ---\n");
+        printf("1. Login\n");
+        printf("2. Sign Up\n");
+        printf("3. Exit\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+        getchar(); // Clear newline
+
+        switch (choice) {
+            case 1:
+                if (login()) {
+                    printf("Login successful!\n");
+                    // Main menu will be called from login function
+                }
+                break;
+            case 2:
+                signUp();
+                break;
+            case 3:
+                printf("Exiting the program. Goodbye!\n");
+                break;
+            default:
+                printf("Invalid choice. Please try again.\n");
+        }
+    } while (choice != 3);
+}
+
+void signUp() {
+    struct User newUser;
+    printf("Enter a username: ");
+    fgets(newUser.username, MAX_USERNAME, stdin);
+    newUser.username[strcspn(newUser.username, "\n")] = 0;
+
+    if (checkUserExists(newUser.username)) {
+        printf("Username already exists. Please choose a different one.\n");
+        return;
+    }
+
+    printf("Enter a password: ");
+    fgets(newUser.password, MAX_PASSWORD, stdin);
+    newUser.password[strcspn(newUser.password, "\n")] = 0;
+
+    FILE *file = fopen("users.txt", "a");
+    if (file == NULL) {
+        printf("Error opening file!\n");
+        return;
+    }
+
+    fprintf(file, "%s %s\n", newUser.username, newUser.password);
+    fclose(file);
+
+    createUserFile(newUser.username);
+    printf("Sign up successful! You can now log in.\n");
+}
+
+int login() {
+    char username[MAX_USERNAME], password[MAX_PASSWORD];
+    printf("Enter your username: ");
+    fgets(username, MAX_USERNAME, stdin);
+    username[strcspn(username, "\n")] = 0;
+
+    printf("Enter your password: ");
+    fgets(password, MAX_PASSWORD, stdin);
+    password[strcspn(password, "\n")] = 0;
+
+    FILE *file = fopen("users.txt", "r");
+    if (file == NULL) {
+        printf("Error opening file!\n");
+        return 0;
+    }
+
+    char fileUsername[MAX_USERNAME], filePassword[MAX_PASSWORD];
+    while (fscanf(file, "%s %s", fileUsername, filePassword) != EOF) {
+        if (strcmp(username, fileUsername) == 0 && strcmp(password, filePassword) == 0) {
+            fclose(file);
+            mainMenu(username);
+            return 1;
+        }
+    }
+
+    fclose(file);
+    printf("Invalid username or password.\n");
+    return 0;
+}
+
+void createUserFile(const char *username) {
+    char filename[MAX_USERNAME + 4];
+    snprintf(filename, sizeof(filename), "%s.txt", username);
+
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
+        printf("Error creating user file!\n");
+        return;
+    }
+    fclose(file);
+}
+
+int checkUserExists(const char *username) {
+    FILE *file = fopen("users.txt", "r");
+    if (file == NULL) {
+        return 0;
+    }
+
+    char fileUsername[MAX_USERNAME];
+    while (fscanf(file, "%s", fileUsername) != EOF) {
+        if (strcmp(username, fileUsername) == 0) {
+            fclose(file);
+            return 1;
+        }
+        fscanf(file, "%*s"); // Skip password
+    }
+
+    fclose(file);
+    return 0;
+}
+
+void mainMenu(const char *username) {
+    int maxEvents;
+    printf("Enter the maximum number of events to schedule: ");
+    scanf("%d", &maxEvents);
+    getchar(); // Clear newline
+
+    struct Event *events = (struct Event *)malloc(maxEvents * sizeof(struct Event));
+    if (events == NULL) {
+        printf("Memory allocation failed!\n");
+        return;
+    }
+
+    int currentEventCount = 0;
+    int choice;
+
+    do {
+        printf("\n--- EventPro Main Menu ---\n");
+        printf("1. Register Events\n");
+        printf("2. Update Events\n");
+        printf("3. View Scheduled Events\n");
+        printf("4. Check Notifications\n");
+        printf("5. Exit\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+        getchar(); // Clear newline
+
+        switch (choice) {
+            case 1:
+                registerEvents(events, &currentEventCount, maxEvents);
+                break;
+            case 2:
+                updateEvent(events, currentEventCount);
+                break;
+            case 3:
+                displayEvents(events, currentEventCount);
+                break;
+            case 4:
+                checkNotifications(events, currentEventCount);
+                break;
+            case 5:
+                printf("Logging out. Goodbye!\n");
+                break;
+            default:
+                printf("Invalid choice. Please try again.\n");
+        }
+    } while (choice != 5);
+
+    // Save events to user file
+    char filename[MAX_USERNAME + 4];
+    snprintf(filename, sizeof(filename), "%s.txt", username);
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
+        printf("Error opening user file for writing!\n");
+    } else {
+        for (int i = 0; i < currentEventCount; i++) {
+            fprintf(file, "%s|%s|%s|%s|%ld|%d|%d\n", events[i].name, events[i].date, events[i].time,
+                    events[i].description, events[i].eventTimestamp, events[i].participantCount, events[i].maxParticipants); // Added maxParticipants to file output
+            for (int j = 0; j < events[i].participantCount; j++) {
+                fprintf(file, "%s %d\n", events[i].participants[j].name, events[i].participants[j].rollNumber);
+            }
+        }
+        fclose(file);
+    }
+
+    free(events);
+}
+
+void registerEvents(struct Event *events, int *currentEventCount, int maxEvents) {
+    int newEvents;
+    int remainingEvents = maxEvents - *currentEventCount;
+
+    if (remainingEvents <= 0) {
+        printf("\nEvent limit reached! Cannot schedule more events.\n");
+        return;
+    }
+
+    printf("\nYou can schedule up to %d more events. How many do you want to add? ", remainingEvents);
+    scanf("%d", &newEvents);
+    getchar(); // Clear newline
+
+    if (newEvents < 1 || newEvents > remainingEvents) {
+        printf("Invalid number of events. Please try again.\n");
+        return;
+    }
+
+    for (int i = 0; i < newEvents; i++) {
+        printf("\nScheduling event %d:\n", *currentEventCount + 1);
+
+        printf("Enter event name: ");
+        fgets(events[*currentEventCount].name, sizeof(events[*currentEventCount].name), stdin);
+        events[*currentEventCount].name[strcspn(events[*currentEventCount].name, "\n")] = 0;
+
+        printf("Enter event date (DD-MM-YYYY): ");
+        fgets(events[*currentEventCount].date, sizeof(events[*currentEventCount].date), stdin);
+        events[*currentEventCount].date[strcspn(events[*currentEventCount].date, "\n")] = 0;
+
+        printf("Enter event time (HH:MM): ");
+        fgets(events[*currentEventCount].time, sizeof(events[*currentEventCount].time), stdin);
+        events[*currentEventCount].time[strcspn(events[*currentEventCount].time, "\n")] = 0;
+
+        printf("Enter event description: ");
+        fgets(events[*currentEventCount].description, sizeof(events[*currentEventCount].description), stdin);
+        events[*currentEventCount].description[strcspn(events[*currentEventCount].description, "\n")] = 0;
+
+        events[*currentEventCount].eventTimestamp = convertToTimestamp(events[*currentEventCount].date, events[*currentEventCount].time);
+        events[*currentEventCount].participantCount = 0;
+        events[*currentEventCount].maxParticipants = MAX_PARTICIPANTS; // Initialize maxParticipants
+
+        addParticipants(&events[*currentEventCount]);
+
+        (*currentEventCount)++;
+    }
+}
+
+void displayEvents(struct Event *events, int numEvents) {
+    if (numEvents == 0) {
+        printf("\nNo events scheduled.\n");
+        return;
+    }
+
+    printf("\n--- Scheduled Events ---\n");
+    for (int i = 0; i < numEvents; i++) {
+        printf("\nEvent %d:\n", i + 1);
+        printf("Name: %s\n", events[i].name);
+        printf("Date: %s\n", events[i].date);
+        printf("Time: %s\n", events[i].time);
+        printf("Description: %s\n", events[i].description);
+        printf("Number of Participants: %d\n", events[i].participantCount);
+        printf("Maximum Participants: %d\n", events[i].maxParticipants); // Added to display maxParticipants
+    }
+}
+
+void checkNotifications(struct Event *events, int numEvents) {
+    if (numEvents == 0) {
+        printf("\nNo events scheduled to check for notifications.\n");
+        return;
+    }
+
+    time_t currentTime = time(NULL);
+    int foundNotification = 0;
+
+    for (int i = 0; i < numEvents; i++) {
+        double secondsUntilEvent = difftime(events[i].eventTimestamp, currentTime);
+        if (secondsUntilEvent <= 3600 && secondsUntilEvent > 0) {  // Event within the next hour
+            printf("\nNotification: '%s' is coming up in %.0f minutes!\n",
+                   events[i].name, secondsUntilEvent / 60);
+            foundNotification = 1;
+        } else if (secondsUntilEvent <= 0 && secondsUntilEvent > -86400) {  // Event today
+            printf("\nNotification: '%s' is happening today!\n", events[i].name);
+            foundNotification = 1;
+        }
+    }
+
+    if (!foundNotification) {
+        printf("\nNo upcoming events within the next hour or today.\n");
+    }
+}
+
+void updateEvent(struct Event *events, int numEvents) {
+    if (numEvents == 0) {
+        printf("\nNo events to update.\n");
+        return;
+    }
+
+    int eventIndex;
+    printf("\nEnter the event number you want to update (1-%d): ", numEvents);
+    scanf("%d", &eventIndex);
+    getchar(); // Clear newline
+
+    if (eventIndex < 1 || eventIndex > numEvents) {
+        printf("Invalid event number.\n");
+        return;
+    }
+
+    eventIndex--; // Adjust for 0-based indexing
+
+    printf("\nUpdating event: %s\n", events[eventIndex].name);
+    printf("1. Update event details\n");
+    printf("2. Add participants\n");
+    printf("3. List participants\n");
+    printf("4. Update maximum participants\n"); // Added option 4
+    printf("Enter your choice: ");
+
+    int choice;
+    scanf("%d", &choice);
+    getchar(); // Clear newline
+
+    switch (choice) {
+        case 1:
+            printf("Enter new event name (or press enter to keep current): ");
+            char input[100];
+            fgets(input, sizeof(input), stdin);
+            input[strcspn(input, "\n")] = 0;
+            if (strlen(input) > 0) strcpy(events[eventIndex].name, input);
+
+            printf("Enter new event date (DD-MM-YYYY) (or press enter to keep current): ");
+            fgets(input, sizeof(input), stdin);
+            input[strcspn(input, "\n")] = 0;
+            if (strlen(input) > 0) strcpy(events[eventIndex].date, input);
+
+            printf("Enter new event time (HH:MM) (or press enter to keep current): ");
+            fgets(input, sizeof(input), stdin);
+            input[strcspn(input, "\n")] = 0;
+            if (strlen(input) > 0) strcpy(events[eventIndex].time, input);
+
+            printf("Enter new event description (or press enter to keep current): ");
+            fgets(input, sizeof(input), stdin);
+            input[strcspn(input, "\n")] = 0;
+            if (strlen(input) > 0) strcpy(events[eventIndex].description, input);
+
+            events[eventIndex].eventTimestamp = convertToTimestamp(events[eventIndex].date, events[eventIndex].time);
+            printf("Event updated successfully.\n");
+            break;
+        case 2:
+            addParticipants(&events[eventIndex]);
+            break;
+        case 3:
+            listParticipants(&events[eventIndex]);
+            break;
+        case 4:
+            printf("Current maximum participants: %d\n", events[eventIndex].maxParticipants);
+            printf("Enter new maximum number of participants: ");
+            int newMax;
+            scanf("%d", &newMax);
+            getchar(); // Clear newline
+            if (newMax > 0 && newMax <= MAX_PARTICIPANTS) {
+                events[eventIndex].maxParticipants = newMax;
+                printf("Maximum participants updated successfully.\n");
+                if (events[eventIndex].participantCount > newMax) {
+                    printf("Warning: Current participant count exceeds new maximum.\n");
+                    printf("Excess participants will not be removed.\n");
+                }
+            } else {
+                printf("Invalid input. Maximum participants not updated.\n");
+            }
+            break;
+        default:
+            printf("Invalid choice.\n"); // Updated default case
+    }
+}
+
+void addParticipants(struct Event *event) {
+    int numParticipants;
+    printf("Enter the number of participants to add: ");
+    scanf("%d", &numParticipants);
+    getchar(); // Clear newline
+
+    for (int i = 0; i < numParticipants && event->participantCount < event->maxParticipants; i++) { // Changed condition to check maxParticipants
+        struct Participant newParticipant;
+        printf("Enter participant name: ");
+        fgets(newParticipant.name, sizeof(newParticipant.name), stdin);
+        newParticipant.name[strcspn(newParticipant.name, "\n")] = 0;
+
+        printf("Enter participant roll number: ");
+        scanf("%d", &newParticipant.rollNumber);
+        getchar(); // Clear newline
+
+        event->participants[event->participantCount++] = newParticipant;
+    }
+
+    printf("Participants added successfully.\n");
+}
+
+void listParticipants(struct Event *event) {
+    if (event->participantCount == 0) {
+        printf("No participants registered for this event.\n");
+        return;
+    }
+
+    printf("\nParticipants for event '%s':\n", event->name);
+    for (int i = 0; i < event->participantCount; i++) {
+        printf("%d. Name: %s, Roll Number: %d\n", i + 1, event->participants[i].name, event->participants[i].rollNumber);
+    }
+}
+
+time_t convertToTimestamp(const char *date, const char *time) {
+    struct tm eventTime = {0};
+    sscanf(date, "%d-%d-%d", &eventTime.tm_mday, &eventTime.tm_mon, &eventTime.tm_year);
+    sscanf(time, "%d:%d", &eventTime.tm_hour, &eventTime.tm_min);
+
+    eventTime.tm_year -= 1900; // Adjust year from YYYY to years since 1900
+    eventTime.tm_mon -= 1;     // Adjust month to 0-based index
+    eventTime.tm_sec = 0;      // Set seconds to 0
+    return mktime(&eventTime);
+}

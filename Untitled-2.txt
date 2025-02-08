@@ -1,0 +1,180 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+// Structure Definitions
+struct Doctor {
+    char name[50];
+    char specialty[50];
+    int id;
+    char availableDays[100];
+};
+
+struct Appointment {
+    int doctorId;
+    char date[20];
+    char time[10];
+    int appointmentId;
+};
+
+struct Patient {
+    char name[50];
+    int age;
+    char contact[15];
+    int id;
+    int appointmentCount;
+    struct Appointment *appointments;
+};
+
+// Global Variables
+struct Doctor *doctors = NULL;
+struct Patient *patients = NULL;
+int doctorCount = 0, patientCount = 0, appointmentIdCounter = 0;
+
+// Utility Functions
+void getInput(const char *prompt, char *buffer, int size) {
+    printf("%s", prompt);
+    fgets(buffer, size, stdin);
+    buffer[strcspn(buffer, "\n")] = '\0'; // Remove trailing newline
+}
+
+// Function to Register a Patient
+void registerPatient() {
+    struct Patient newPatient;
+    char ageBuffer[10];
+
+    getInput("Enter patient name: ", newPatient.name, sizeof(newPatient.name));
+    getInput("Enter patient age: ", ageBuffer, sizeof(ageBuffer));
+    newPatient.age = atoi(ageBuffer);
+    getInput("Enter contact number: ", newPatient.contact, sizeof(newPatient.contact));
+
+    newPatient.id = ++patientCount;
+    newPatient.appointmentCount = 0;
+    newPatient.appointments = NULL;
+
+    patients = realloc(patients, patientCount * sizeof(struct Patient));
+    patients[patientCount - 1] = newPatient;
+
+    printf("Patient Registered Successfully! ID: %d\n", newPatient.id);
+}
+
+// Function to Register a Doctor
+void registerDoctor() {
+    struct Doctor newDoctor;
+
+    getInput("Enter doctor name: ", newDoctor.name, sizeof(newDoctor.name));
+    getInput("Enter specialty: ", newDoctor.specialty, sizeof(newDoctor.specialty));
+    getInput("Enter available days (comma separated): ", newDoctor.availableDays, sizeof(newDoctor.availableDays));
+
+    newDoctor.id = ++doctorCount;
+
+    doctors = realloc(doctors, doctorCount * sizeof(struct Doctor));
+    doctors[doctorCount - 1] = newDoctor;
+
+    printf("Doctor Registered Successfully! ID: %d\n", newDoctor.id);
+}
+
+// Function to Check Doctor Availability
+void checkDoctorAvailability() {
+    char specialty[50], date[20];
+    int found = 0;
+
+    getInput("Enter specialty to search: ", specialty, sizeof(specialty));
+    getInput("Enter date (DD/MM/YYYY): ", date, sizeof(date));
+
+    printf("\nDoctors available for '%s' on %s:\n", specialty, date);
+    printf("+-----+---------------------+----------------------+----------------------------+\n");
+    printf("| ID  | Name                | Specialty            | Available Days             |\n");
+    printf("+-----+---------------------+----------------------+----------------------------+\n");
+
+    for (int i = 0; i < doctorCount; i++) {
+        if (strcasecmp(doctors[i].specialty, specialty) == 0 && strstr(doctors[i].availableDays, date) != NULL) {
+            found = 1;
+            printf("| %-3d | %-19s | %-20s | %-26s |\n", doctors[i].id, doctors[i].name, doctors[i].specialty, doctors[i].availableDays);
+        }
+    }
+
+    printf("+-----+---------------------+----------------------+----------------------------+\n");
+
+    if (!found) {
+        printf("No doctors available for the specified specialty and date.\n");
+    }
+}
+
+// Function to Export Patient Records to File
+void exportPatientRecords() {
+    FILE *file = fopen("patient_records.txt", "w");
+    if (!file) {
+        printf("Failed to open file for writing.\n");
+        return;
+    }
+
+    fprintf(file, "Patient Records:\n");
+    fprintf(file, "+-----+--------------------+-----+------------------+\n");
+    fprintf(file, "| ID  | Name               | Age | Contact          |\n");
+    fprintf(file, "+-----+--------------------+-----+------------------+\n");
+
+    for (int i = 0; i < patientCount; i++) {
+        fprintf(file, "| %-3d | %-18s | %-3d | %-16s |\n", patients[i].id, patients[i].name, patients[i].age, patients[i].contact);
+    }
+
+    fprintf(file, "+-----+--------------------+-----+------------------+\n");
+    fclose(file);
+
+    printf("Patient records exported successfully to 'patient_records.txt'.\n");
+}
+
+// Function to View All Appointments for a Specific Date
+void viewAppointmentsByDate() {
+    char date[20];
+    getInput("Enter date (DD/MM/YYYY): ", date, sizeof(date));
+
+    printf("\nAppointments on %s:\n", date);
+    for (int i = 0; i < patientCount; i++) {
+        for (int j = 0; j < patients[i].appointmentCount; j++) {
+            struct Appointment *appt = &patients[i].appointments[j];
+            if (strcmp(appt->date, date) == 0) {
+                printf("Patient: %s, Doctor: %s, Time: %s\n", patients[i].name, doctors[appt->doctorId - 1].name, appt->time);
+            }
+        }
+    }
+}
+
+// Main Menu
+void menu() {
+    int choice;
+    char choiceBuffer[10];
+
+    do {
+        printf("\n*** Hospital Management System ***\n");
+        printf("1. Register Patient\n");
+        printf("2. Register Doctor\n");
+        printf("3. Check Doctor Availability\n");
+        printf("4. Export Patient Records\n");
+        printf("5. View Appointments by Date\n");
+        printf("6. Exit\n");
+        printf("Enter your choice: ");
+        getInput("", choiceBuffer, sizeof(choiceBuffer));
+        choice = atoi(choiceBuffer);
+
+        switch (choice) {
+            case 1: registerPatient(); break;
+            case 2: registerDoctor(); break;
+            case 3: checkDoctorAvailability(); break;
+            case 4: exportPatientRecords(); break;
+            case 5: viewAppointmentsByDate(); break;
+            case 6: printf("Exiting...\n"); break;
+            default: printf("Invalid choice. Please try again.\n");
+        }
+    } while (choice != 6);
+
+    free(doctors);
+    free(patients);
+}
+
+// Main Function
+int main() {
+    menu();
+    return 0;
+}
