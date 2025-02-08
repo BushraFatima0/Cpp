@@ -1,3 +1,9 @@
+/*
+enter a number 3
+Prime number
+next prime no.= 5
+*/
+
 #include<iostream>
 #include<cmath>
 using namespace std;
