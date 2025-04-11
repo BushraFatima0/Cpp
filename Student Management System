@@ -1,0 +1,140 @@
+#include <iostream>
+#include <vector>
+using namespace std;
+class Student 
+{
+private:
+    string name;
+    int rollno;
+    float cgpa;
+    vector<string> courses;
+public:
+    Student() 
+    {
+        name = "";
+        rollno = 0;
+        cgpa = 0.0;
+    }
+    Student(string n, int r, float c) 
+    {
+        name = n;
+        rollno = r;
+        cgpa = c;
+    }
+    Student(const Student &s)
+    {
+        name = s.name;
+        rollno = s.rollno;
+        cgpa = s.cgpa;
+        courses = s.courses;
+    }
+    ~Student(){}
+    void addcourse(string course) 
+    {
+        courses.push_back(course);
+    }
+    void updateCGPA(float newCGPA) 
+    {
+        if (newCGPA >= 0.0 && newCGPA <= 10.0)
+            cgpa = newCGPA;
+        else
+            cout <<"Invalid CGPA" << endl;
+    }
+    void displayInfo() 
+    {
+        cout << "\nName:" << name << "\nRoll No:" << rollno 
+     << "\nCGPA:" << cgpa << "\nCourses:";
+
+        for (int i = 0; i < courses.size(); i++)
+        {
+            cout << courses[i] << " ";}
+        cout << "\n";
+    }
+    int getRoll() 
+    {
+        return rollno;
+    }
+};
+class StudentManagementSystem 
+{
+private:
+    vector<Student> students;
+public:
+    void addStudent(Student s) 
+    {
+        students.push_back(s);
+    }
+    void searchStudent(int roll) 
+    {
+        for (Student& s : students) 
+        {
+            if (s.getRoll() == roll) 
+            {
+                s.displayInfo();
+                return;
+            }
+        }
+        cout << "roll no not found.\n";
+    }
+    void displayAllStudents() 
+    {
+        for (int i = 0; i < students.size(); i++) {
+            students[i].displayInfo();
+            cout << endl;
+        }
+    }
+};
+int main() {
+    StudentManagementSystem system;
+    int choice;
+    do {
+        cout << "\nStudent Management System\n";
+        cout << "1.Add Student\n";
+        cout << "2.Display All Students\n";
+        cout << "3.Search Student by Roll Number\n";
+        cout << "4.Exit\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+        if (choice == 1) {
+            string name;
+            int rollno;
+            float cgpa;
+            int courseCount;
+            string course;
+            cout << "Enter name: ";
+            cin >> name;
+            cout << "Enter roll no: ";
+            cin >> rollno;
+            cout << "Enter CGPA: ";
+            cin >> cgpa;
+            Student s(name, rollno, cgpa);
+            cout << "How many courses to add ";
+            cin >> courseCount;
+            for (int i = 0; i < courseCount; i++) 
+            {
+                cout << "Enter course: ";
+                cin >> course;
+                s.addcourse(course);
+            }
+            system.addStudent(s);
+        } 
+        else if (choice == 2) {
+            system.displayAllStudents();
+
+        } 
+        else if (choice == 3)
+        {
+            int roll;
+            cout << "Enter roll number to search:";
+            cin >> roll;
+            system.searchStudent(roll);
+        } 
+        else if (choice == 4) 
+        {
+            cout << "Exit\n";
+        } else {
+            cout << "Invalid choice.\n";
+        }
+    } while (choice != 4);
+    return 0;
+}
